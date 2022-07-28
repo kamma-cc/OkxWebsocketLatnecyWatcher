@@ -43,7 +43,7 @@ public class OkxWebsocketClient implements ApplicationRunner, Runnable, WebSocke
 
         HttpClient httpClient = HttpClient.newHttpClient();
         httpClient.newWebSocketBuilder().buildAsync(
-                URI.create("wss://ws.okx.com:8443/ws/v5/public"), this
+                URI.create("wss://wsaws.okx.com:8443/ws/v5/public"), this
         );
     }
 
@@ -72,8 +72,8 @@ public class OkxWebsocketClient implements ApplicationRunner, Runnable, WebSocke
             String tsStr = data.subSequence(length - 17, length - 4).toString();
             try {
                 long ts = Long.parseLong(tsStr);
-                System.out.println(ts);
                 long latencyMs = System.currentTimeMillis() - ts;
+                System.out.println(latencyMs);
                 timer.record(latencyMs, TimeUnit.MILLISECONDS);
             } catch (NumberFormatException e) {
                 // ignore
