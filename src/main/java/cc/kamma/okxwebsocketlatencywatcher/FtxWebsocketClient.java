@@ -1,7 +1,6 @@
 package cc.kamma.okxwebsocketlatencywatcher;
 
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -15,16 +14,16 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 
 @Component
-public class OkxWebsocketClient implements ApplicationRunner, Runnable, WebSocket.Listener {
+public class FtxWebsocketClient implements ApplicationRunner, Runnable, WebSocket.Listener {
 
 
     private final MeterRegistry meterRegistry;
     private final Timer timer;
 
-    public OkxWebsocketClient(MeterRegistry meterRegistry) {
+    public FtxWebsocketClient(MeterRegistry meterRegistry) {
         this.meterRegistry = meterRegistry;
         this.timer = Timer.builder("latency")
-                .tag("site", "OKX")
+                .tag("site", "FTX")
                 .publishPercentiles(0.99, 0.999, 0.9999)
                 .maximumExpectedValue(Duration.ofMillis(80))
                 .minimumExpectedValue(Duration.ofMillis(1))
@@ -44,7 +43,7 @@ public class OkxWebsocketClient implements ApplicationRunner, Runnable, WebSocke
 
         HttpClient httpClient = HttpClient.newHttpClient();
         httpClient.newWebSocketBuilder().buildAsync(
-                URI.create("wss://wsaws.okx.com:8443/ws/v5/public"), this
+                URI.create("wss://ftx.com/ws/"), this
         );
     }
 
@@ -53,15 +52,7 @@ public class OkxWebsocketClient implements ApplicationRunner, Runnable, WebSocke
         System.out.println("opened");
         webSocket.sendText(
                 """
-                        {
-                          "op": "subscribe",
-                          "args": [
-                            {
-                              "channel": "bbo-tbt",
-                              "instId": "BTC-USDT-SWAP"
-                            }
-                          ]
-                        }"""
+                        {"op": "subscribe", "channel": "ticker", "market": "BTC-PERP"}"""
                 , true);
         webSocket.request(1);
     }
@@ -69,12 +60,14 @@ public class OkxWebsocketClient implements ApplicationRunner, Runnable, WebSocke
     @Override
     public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
         if (last) {
+            String str = data.toString();
             int length = data.length();
-            String tsStr = data.subSequence(length - 17, length - 4).toString();
+            int index = str.indexOf("time");
+            String tsStr = str.substring(index + 6, index+20);
             try {
-                long ts = Long.parseLong(tsStr);
-                long latencyMs = System.currentTimeMillis() - ts;
-                System.out.println("okx:" + latencyMs);
+                double ts = Double.parseDouble(tsStr);
+                long latencyMs = System.currentTimeMillis() - (long) (ts * 1000);
+                System.out.println("ftx:" + latencyMs);
                 timer.record(latencyMs, TimeUnit.MILLISECONDS);
             } catch (NumberFormatException e) {
                 // ignore
@@ -95,4 +88,5 @@ public class OkxWebsocketClient implements ApplicationRunner, Runnable, WebSocke
     public void onError(WebSocket webSocket, Throwable error) {
         System.out.println("error: " + error);
     }
+
 }
